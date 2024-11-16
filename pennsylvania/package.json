@@ -1,0 +1,20 @@
+{
+  "name": "datastorm-hackaton",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "Chapman_scrape.js",
+  "scripts": {
+    "start": "node Chapman_scrape.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "lodash": "^4.17.21",
+    "request-promise": "^4.2.6"
+  },
+  "description": "This project aims to scrape and structure legislative data from various US states into a consistent JSON format. Each state has unique challenges and data structures that need to be handled appropriately.",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
