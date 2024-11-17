@@ -18,13 +18,10 @@ async function saveToFile(filename, data) {
   }
 }
 
-// Fetch parts and their URLs
 async function fetchParts() {
   try {
     console.log(`Fetching content from: ${targetUrl}`);
     const response = await axios.get(targetUrl);
-
-    // Load the HTML using cheerio
     const $ = cheerio.load(response.data);
 
     const parts = [];
@@ -71,7 +68,6 @@ async function fetchParts() {
   }
 }
 
-// Fetch titles from a specific part URL
 async function fetchTitleInfo(partUrl) {
   try {
     console.log(`Fetching title information from: ${partUrl}`);
@@ -115,18 +111,16 @@ async function fetchChapters(titles) {
       const browser = await puppeteer.launch();
       const page = await browser.newPage();
   
-      const allChapters = []; // Collect chapters from all titles
+      const allChapters = []; 
   
       for (const title of titles) {
         const { url: titleUrl, display_name: titleName, description: titleDescription } = title;
         console.log(`Fetching chapters from: ${titleUrl}`);
   
         await page.goto(titleUrl, { waitUntil: "networkidle2" });
-  
-        // Wait for the desired content to load
+
         await page.waitForSelector("ul.generalLawsList");
   
-        // Extract HTML content
         const chapters = await page.evaluate(() => {
           const chapterElements = document.querySelectorAll("ul.generalLawsList > li > a");
           const chapters = [];
@@ -144,8 +138,6 @@ async function fetchChapters(titles) {
           });
           return chapters;
         });
-  
-        // Add metadata (title name and description) to each chapter
         chapters.forEach((chapter) => {
           allChapters.push({
             ...chapter
@@ -165,93 +157,94 @@ async function fetchChapters(titles) {
   
 
 
+  async function fetchSections(chapters, concurrency = 10) {
+    const browser = await puppeteer.launch({ headless: true });
+    const allSections = {};
+    const chapterQueue = [...chapters]; // Clone chapters array for processing
   
-  async function fetchSections(chapters) {
-    try {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // Delay to prevent overload
+  
+    const processChapter = async (chapter) => {
       const page = await browser.newPage();
+      try {
+        const { chapter_url: chapterUrl, chapter_number: chapterNumber } = chapter;
+        console.log(`Fetching sections from: ${chapterUrl}`);
   
-      const allSections = {};
+        await page.goto(chapterUrl, { waitUntil: "networkidle2" });
+        await page.waitForSelector("ul.generalLawsList");
   
-      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  
-      for (const chapter of chapters) {
-        try {
-          const { chapter_url: chapterUrl, chapter_number: chapterNumber } = chapter;
-          console.log(`Fetching sections from: ${chapterUrl}`);
-  
-          await page.goto(chapterUrl, { waitUntil: "networkidle2" });
-  
-          await page.waitForSelector("ul.generalLawsList");
-  
-          const sections = await page.evaluate(() => {
-            const sectionElements = document.querySelectorAll("ul.generalLawsList > li > a");
-            const sections = [];
-            sectionElements.forEach((element) => {
-              const sectionUrl = element.href;
-              const sectionNumber = element.querySelector("span.section")?.textContent.trim().replace("Section ", "");
-              const sectionTitle = element.querySelector("span.sectionTitle")?.textContent.trim();
-              sections.push({
-                display_name: `Section ${sectionNumber}`,
-                section_number: sectionNumber,
-                section_title: sectionTitle,
-                url: sectionUrl,
-              });
+        // Fetch section metadata
+        const sections = await page.evaluate(() => {
+          const sectionElements = document.querySelectorAll("ul.generalLawsList > li > a");
+          const sections = [];
+          sectionElements.forEach((element) => {
+            const sectionUrl = element.href;
+            const sectionNumber = element.querySelector("span.section")?.textContent.trim().replace("Section ", "");
+            const sectionTitle = element.querySelector("span.sectionTitle")?.textContent.trim();
+            sections.push({
+              display_name: `Section ${sectionNumber}`,
+              section_number: sectionNumber,
+              section_title: sectionTitle,
+              url: sectionUrl,
             });
-            return sections;
           });
+          return sections;
+        });
   
-          for (const section of sections) {
-            try {
-              console.log(`Fetching content for Section ${section.section_number}: ${section.url}`);
+        // Fetch content for each section
+        for (const section of sections) {
+          try {
+            console.log(`Fetching content for Section ${section.section_number}: ${section.url}`);
+            await page.goto(section.url, { waitUntil: "networkidle2" });
+  
+            // Wait for content element to load
+            await page.waitForSelector("p", { timeout: 30000 });
+  
+            // Extract content
+            const content = await page.evaluate(() => {
+            const paragraphs = Array.from(document.querySelectorAll("p"));
+
+              const contentElement = paragraphs.find(p => p.textContent.trim().startsWith("Section"));
               
-              // Navigate to the section page
-              await page.goto(section.url, { waitUntil: "networkidle2" });
+              return contentElement ? contentElement.textContent.trim() : "Content not available";
+            });
   
-              await page.waitForSelector("div.col-xs-12 > p",  { timeout: 60000 }); 
-              
-              const content = await page.evaluate(() => {
-                const contentElement = document.querySelector("div.col-xs-12 > p"); 
-                return contentElement ? contentElement.textContent.trim() : "Content not available";
-              });
-  
-              // Add content to the section
-              section.content = content;
-              
-              console.log(`Extracted content for Section ${section.section_number}`);
-            } catch (error) {
-              console.error(`Error fetching content for Section ${section.section_number}:`, error.message);
-              section.content = "Failed to fetch content";
-            }
-  
-            // Add section to allSections
-            const sectionId = `chapter${chapterNumber}_section${section.section_number}`;
-            allSections[sectionId] = section;
+            // Add content to the section
+            section.content = content;
+            console.log(`Extracted content for Section ${section.section_number}`);
+          } catch (error) {
+            console.error(`Error fetching content for Section ${section.section_number}:`, error.message);
+            section.content = "Failed to fetch content";
           }
   
-          await delay(2000); // Delay to prevent server overload
-        } catch (error) {
-          console.error(`Error processing chapter at ${chapter.chapter_url}:`, error.message);
+          // Add section to allSections
+          const sectionId = `chapter${chapterNumber}_section${section.section_number}`;
+          allSections[sectionId] = section;
+  
+          await delay(2000); 
+        }
+      } catch (error) {
+        console.error(`Error processing chapter at ${chapter.chapter_url}:`, error.message);
+      } finally {
+        await page.close();
+      }
+    };
+  
+    // Run multiple pages in parallel
+    const workers = Array.from({ length: concurrency }).map(async () => {
+      while (chapterQueue.length > 0) {
+        const chapter = chapterQueue.shift();
+        if (chapter) {
+          await processChapter(chapter);
         }
       }
+    });
   
-      await browser.close();
+    await Promise.all(workers); // Wait for all workers to complete
+    await browser.close();
   
-      return { sections: allSections };
-    } catch (error) {
-      console.error("Error fetching sections from chapters:", error.message);
-    }
+    return { sections: allSections };
   }
   
 
-
-  
-  
-  
-  
-
-// Start the script
 fetchParts();
