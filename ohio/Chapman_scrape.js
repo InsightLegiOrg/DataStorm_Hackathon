@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { all } from "axios";
 import * as cheerio from "cheerio";
 import https from "https";
 import dotenv from "dotenv";
@@ -61,7 +61,7 @@ async function scrapeTitles()
 
         if(parts[1] == undefined)
         {
-          numberSplit[1] = 0;
+          numberSplit[1] = '0';
           parts[1] = parts[0];
         }
         
@@ -85,7 +85,7 @@ async function scrapeTitles()
     await scrapeChapters(title);
   }
 
-  fs.writeFileSync('data/titles/ohio_titles.json', JSON.stringify(titleData, null, 2));
+  fs.writeFileSync('data/ohio_all_formats.json', JSON.stringify(titleData, null, 2));
 }
 
 
@@ -140,7 +140,7 @@ async function scrapeChapters(title)
 
         if(parts[1] == undefined)
         {
-          numberSplit[1] = 0;
+          numberSplit[1] = '0';
           parts[1] = parts[0];
         }
 
@@ -220,7 +220,7 @@ async function scrapeSections(chapter)
 
         if(parts[1] == undefined)
         {
-          numberSplit[1] = 0;
+          numberSplit[1] = '0';
           parts[1] = parts[0];
         }
         
@@ -230,6 +230,7 @@ async function scrapeSections(chapter)
           sectionNum: numberSplit[1],
           sectionName: splitName[0],
           url: fullLink,
+          text: ""
         });
       }
     });
@@ -241,7 +242,9 @@ async function scrapeSections(chapter)
 
   for(const section of sectionData)
   {
+    section.text = await getText(section.url);
     chapter.sections.push(section);
+    console.log(`${section.sectionNum} ${section.sectionName} text collected.`)
   }
 }  
 
@@ -273,17 +276,24 @@ async function getText(url)
       return;
     }
 
+    let allParagraphText = ""; // String to hold all paragraphs
+
     // Step 5: Extract and print each paragraph
     paragraphs.each((index, paragraph) => {
       const paragraphText = $(paragraph).text().trim();
+      allParagraphText += paragraphText + "\n"; // Append each paragraph text, followed by a newline
     });
 
-  } catch (error) {
+    return allParagraphText;
+  } 
+  catch (error) 
+  {
     console.error(`Error fetching or parsing the URL: ${error.message}`);
+    console.log(url);
   }
 }
 
 
-//getText('https://codes.ohio.gov/ohio-revised-code/section-6301.23');
+//console.log( await getText('https://codes.ohio.gov/ohio-revised-code/section-723.53'));
 // Call the scraper function
 scrapeTitles();
