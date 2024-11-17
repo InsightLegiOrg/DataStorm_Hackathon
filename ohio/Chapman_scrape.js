@@ -85,7 +85,7 @@ async function scrapeTitles()
     await scrapeChapters(title);
   }
 
-  fs.writeFileSync('data/ohio_all_formats.json', JSON.stringify(titleData, null, 2));
+  fs.writeFileSync('data/ohio_another_run.json', JSON.stringify(titleData, null, 2));
 }
 
 
@@ -163,8 +163,6 @@ async function scrapeChapters(title)
     await scrapeSections(chapter);
     title.chapters.push(chapter);
   }
-
-  //fs.writeFileSync('data/chapters/ohio_chapters.json', JSON.stringify(chapterData, null, 2));
 }
  
 
@@ -281,7 +279,7 @@ async function getText(url)
     // Step 5: Extract and print each paragraph
     paragraphs.each((index, paragraph) => {
       const paragraphText = $(paragraph).text().trim();
-      allParagraphText += paragraphText + "\n"; // Append each paragraph text, followed by a newline
+      allParagraphText += paragraphText; // Append each paragraph text, followed by a newline
     });
 
     return allParagraphText;
