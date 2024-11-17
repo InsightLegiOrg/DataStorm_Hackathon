@@ -18,7 +18,7 @@ async function scrapeTitles()
   try 
   {
     // Step 1: Fetch the HTML of the page
-    const { data } = await axios.get('https://codes.ohio.gov/ohio-revised-code');
+    const { data } = await axios.get('https://statutes.capitol.texas.gov/');
     
     // Step 2: Load the HTML into Cheerio
     const $ = cheerio.load(data);
@@ -27,24 +27,8 @@ async function scrapeTitles()
     
     let targetTable = null;
 
-    tables.each((i, table) => 
-      {
-      // If the table has a TH of 'Title' then it is the wanted table 
-      if ($(table).find('th:contains("Title")').length > 0) 
-      {
-        targetTable = $(table);
-      }
-    });
-
-    // All tables habe been searched and the target has not been found
-    if (!targetTable) 
-    {
-      console.log('Could not find the target table.');
-      return;
-    }
-    
     // Step 4: Extract links from each row in the target table
-    targetTable.find('tr').each((i, row) => 
+    targetTable.find('td').each((i, row) => 
     {
       const linkElement = $(row).find('a[href]');
       if (linkElement.length) 
@@ -252,44 +236,67 @@ async function getText(url)
     // Step 1: Fetch the HTML content of the page
     const { data } = await axios.get(url);
 
+    //console.log(data);  
     // Step 2: Load the HTML into cheerio
     const $ = cheerio.load(data);
 
     // Step 3: Select the section with the class "laws-body"
-    const lawsBody = $('.laws-body');
+    //onst lawsBody = $('.laws-body');
 
-    if(lawsBody.length === 0) 
+    /*if(lawsBody.length === 0) 
     {
       console.log('No section found with class "laws-body".');
       return;
-    }
+    }*/
 
     // Step 4: Find all paragraph elements within the "laws-body" section
-    const paragraphs = lawsBody.find('p');
+    const listItems = $('body').find('p');
 
-    if (paragraphs.length === 0) {
-      console.log('No paragraphs found within the "laws-body" section.');
-      return;
-    }
 
     let allParagraphText = ""; // String to hold all paragraphs
 
     // Step 5: Extract and print each paragraph
-    paragraphs.each((index, paragraph) => {
-      const paragraphText = $(paragraph).text().trim();
-      allParagraphText += paragraphText; // Append each paragraph text, followed by a newline
+    listItems.each((i, items) => {
+      const paragraphText = $(items).text().trim();
+
+      if(i < 3) {return true;}
+
+      allParagraphText += paragraphText + " "; // Append each paragraph text, followed by a newline
     });
 
     return allParagraphText;
   } 
   catch (error) 
   {
-    console.error(`Error fetching or parsing the URL: ${error.message}`);
-    console.log(url);
+    //console.error(`Error fetching or parsing the URL: ${error.message}`);
+    //console.log(url);
   }
 }
 
 
-//console.log( await getText('https://codes.ohio.gov/ohio-revised-code/section-723.53'));
+const constitutionTexts = [];
+let j = 0;
+for(let i = 1; i < 18; i++)
+{
+  j = 1;
+  while(j != 0)
+  {
+    const text = await getText(`https://statutes.capitol.texas.gov/Docs/CN/htm/CN.${i}/CN.${i}.${j}.htm`);
+
+    if(text != undefined)
+    {
+      constitutionTexts.push({text: text});
+      j++;
+    }
+    else
+    {
+      j = 0;
+    }
+  }
+}
+
+fs.writeFileSync('data/texas_const.json', JSON.stringify(constitutionTexts, null, 2));
+
+
 // Call the scraper function
-scrapeTitles();
+//scrapeTitles();
