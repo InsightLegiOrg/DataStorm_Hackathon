@@ -1,6 +1,9 @@
 # Instructions for Texas
+
 **The location of the github repo:** https://github.com/InsightLegiOrg/DataStorm_Hackathon/tree/texas_Jessica under the Texas folder.
+
 **Tools:** Python
+
 **Site I scraped:** https://statutes.capitol.texas.gov/
 The preliminary steps that I had to take before running the code was downloading the most recent chrome driver extension https://googlechromelabs.github.io/chrome-for-testing/#stable and then putting it’s path within the code. 
 
