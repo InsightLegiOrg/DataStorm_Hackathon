@@ -250,21 +250,46 @@ async function getText(url)
     }*/
 
     // Step 4: Find all paragraph elements within the "laws-body" section
-    const listItems = $('body').find('p');
+    const listItems = $('body').find('p').not('.center');
 
-
+    const re = /Sec\. \d+\.\s+([A-Z\s;]+)\./g;
     let allParagraphText = ""; // String to hold all paragraphs
+    let sectionNum = "";
+    let sectionName = "";
+  
+    const sectionInfoArray = [];
 
     // Step 5: Extract and print each paragraph
     listItems.each((i, items) => {
       const paragraphText = $(items).text().trim();
 
-      if(i < 3) {return true;}
+      const sectionInfo = paragraphText.match(re);
 
-      allParagraphText += paragraphText + " "; // Append each paragraph text, followed by a newline
+      //console.log(sectionInfo);
+      if(sectionInfo != null)
+      {
+        //console.log(sectionInfo[0]);
+        const removeSectionInfo = paragraphText.replace(sectionInfo, "");
+        const infoSplit = sectionInfo[0].match(/Sec\. \d+\. (.+)/);
+
+        sectionNum = infoSplit[0].match(/Sec\. \d+\./)[0].match(/\d+/)[0];
+        //console.log(sectionNum);
+        sectionName = infoSplit[1].trim();
+        allParagraphText += removeSectionInfo.trim() + " ";
+      }      
+      else
+      {
+        allParagraphText += paragraphText.trim() + " "; // Append each paragraph text, followed by a newline
+      }
     });
 
-    return allParagraphText;
+    sectionInfoArray.push({
+      sectionNum: sectionNum,
+      sectionName: sectionName,
+      text: allParagraphText
+    });
+    
+    return sectionInfoArray;
   } 
   catch (error) 
   {
@@ -281,11 +306,21 @@ for(let i = 1; i < 18; i++)
   j = 1;
   while(j != 0)
   {
-    const text = await getText(`https://statutes.capitol.texas.gov/Docs/CN/htm/CN.${i}/CN.${i}.${j}.htm`);
+    const section = await getText(`https://statutes.capitol.texas.gov/Docs/CN/htm/CN.${i}/CN.${i}.${j}.htm`);
 
-    if(text != undefined)
+    //console.log(section[0]);
+    if(section != undefined)
     {
-      constitutionTexts.push({text: text});
+      //console.log(section[0].sectionName);
+
+      
+      // FIGURE OUT WHY IT IS INDEX 0 OF THE SECTION. WHY IS IT A 2D ARRAY
+      constitutionTexts.push({
+        articleNum: i.toString(),
+        sectionNum: section[0].sectionNum,
+        sectionName: section[0].sectionName,
+        text: section[0].text
+      });
       j++;
     }
     else
@@ -295,7 +330,8 @@ for(let i = 1; i < 18; i++)
   }
 }
 
-fs.writeFileSync('data/texas_const.json', JSON.stringify(constitutionTexts, null, 2));
+//console.table(constitutionTexts);
+fs.writeFileSync('data/texas_const_test.json', JSON.stringify(constitutionTexts, null, 2));
 
 
 // Call the scraper function
